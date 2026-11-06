@@ -1,0 +1,11 @@
+{
+  "name": "expenses-tracker-e2e",
+  "private": true,
+  "description": "Browser-driven end-to-end tests for the Expenses Tracker UI (Chrome DevTools Protocol, no test framework required).",
+  "scripts": {
+    "test": "node ui-e2e.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
