@@ -9,6 +9,7 @@ import AuthShell from '../components/AuthShell';
 import { Field, Input, FormError } from '../components/ui/Fields';
 import { Spinner } from '../components/ui/Primitives';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n/LanguageContext';
 import { getErrorMessage } from '../services/api';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
@@ -20,6 +21,7 @@ const schema = z.object({
 export default function Login() {
   useDocumentTitle('Login');
   const { login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +37,7 @@ export default function Login() {
     setServerError('');
     try {
       await login(values);
-      toast.success('Welcome back!');
+      toast.success(t('auth.welcomeBack'));
       navigate(location.state?.from || '/', { replace: true });
     } catch (err) {
       const msg = getErrorMessage(err, 'Unable to log in.');
@@ -45,13 +47,13 @@ export default function Login() {
 
   return (
     <AuthShell
-      title="Welcome back"
-      subtitle="Log in to your dashboard to continue."
+      title={t('auth.welcomeBack')}
+      subtitle={t('auth.loginSubtitle')}
       footer={
         <>
-          New to Expenses Tracker?{' '}
+          {t('auth.newTo')}{' '}
           <Link to="/register" className="font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-400">
-            Create an account
+            {t('auth.createAccount')}
           </Link>
         </>
       }
@@ -59,7 +61,7 @@ export default function Login() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <FormError message={serverError} />
 
-        <Field label="Email address" error={errors.email?.message}>
+        <Field label={t('auth.email')} error={errors.email?.message}>
           <Input
             type="email"
             autoComplete="email"
@@ -69,7 +71,7 @@ export default function Login() {
           />
         </Field>
 
-        <Field label="Password" error={errors.password?.message}>
+        <Field label={t('auth.password')} error={errors.password?.message}>
           <div className="relative">
             <Input
               type={showPassword ? 'text' : 'password'}
@@ -92,7 +94,7 @@ export default function Login() {
 
         <button type="submit" className="btn-primary w-full !py-3" disabled={isSubmitting}>
           {isSubmitting ? <Spinner className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
-          {isSubmitting ? 'Logging in…' : 'Log in'}
+          {isSubmitting ? t('auth.loggingIn') : t('auth.logIn')}
         </button>
       </form>
     </AuthShell>

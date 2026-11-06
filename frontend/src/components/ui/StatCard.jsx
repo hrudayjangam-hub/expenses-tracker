@@ -50,7 +50,7 @@ export default function StatCard({
   }
 
   return (
-    <div className={`card-hover card group relative overflow-hidden p-5 ${className}`}>
+      <div className={`card-hover card glass-card group relative overflow-hidden p-5 ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-ink-400 dark:text-ink-500">{label}</p>

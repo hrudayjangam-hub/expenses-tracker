@@ -23,7 +23,13 @@ const loginSchema = z.object({
 
 const profileSchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
-  currency: z.enum(['INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY', 'AUD', 'CAD', 'SGD']).optional(),
+  currency: z
+    .enum([
+      'INR', 'USD', 'EUR', 'GBP', 'AED', 'JPY', 'AUD', 'CAD', 'SGD',
+      'CNY', 'CHF', 'KRW', 'BRL', 'ZAR', 'MYR', 'THB', 'PKR', 'BDT', 'NGN',
+    ])
+    .optional(),
+  language: z.enum(['en', 'hi', 'te', 'es']).optional(),
 });
 
 const passwordSchema = z.object({
@@ -78,6 +84,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   const updates = req.valid.body;
   if (updates.name) req.user.name = updates.name;
   if (updates.currency) req.user.currency = updates.currency;
+  if (updates.language) req.user.language = updates.language;
   await req.user.save();
   res.json({ success: true, message: 'Profile updated.', user: req.user });
 });

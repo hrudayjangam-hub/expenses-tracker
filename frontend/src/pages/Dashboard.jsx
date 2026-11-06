@@ -38,20 +38,28 @@ import useChartTheme, { PALETTE } from '../hooks/useChartTheme';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { getSummary, getAnalytics } from '../services/dashboardService';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n/LanguageContext';
 import { useCategories } from '../hooks/useCategories';
 import { formatCurrency, relativeDay } from '../utils/format';
 import { DEFAULT_PRESET, resolvePreset } from '../utils/datePresets';
 
 const STATUS_TONE = { ok: 'emerald', warning: 'amber', danger: 'amber', over: 'rose' };
-const STATUS_LABEL = { ok: 'On track', warning: '75% used', danger: '90% used', over: 'Over budget' };
 
 export default function Dashboard({ refreshKey = 0, onAddTransaction }) {
   useDocumentTitle('Dashboard');
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useI18n();
   const currency = user?.currency || 'INR';
   const { categories } = useCategories();
   const chart = useChartTheme();
+
+  const STATUS_LABEL = {
+    ok: t('common.onTrack'),
+    warning: `75% ${t('common.used')}`,
+    danger: `90% ${t('common.used')}`,
+    over: t('common.overBudget'),
+  };
 
   const [range, setRange] = useState(() => resolvePreset(DEFAULT_PRESET));
 
@@ -81,7 +89,7 @@ export default function Dashboard({ refreshKey = 0, onAddTransaction }) {
     return daily.map((d) => ({ label: d.date.slice(5), expense: d.expense, income: d.income }));
   }, [analytics]);
 
-  if (summaryQ.loading && !summary) return <FullSpinner label="Loading your dashboard…" />;
+  if (summaryQ.loading && !summary) return <FullSpinner label={t('dash.loading')} />;
 
   const totals = summary?.totals || { income: 0, expense: 0, savings: 0, count: 0 };
   const month = summary?.month || { income: 0, expense: 0, savings: 0 };
@@ -97,13 +105,14 @@ export default function Dashboard({ refreshKey = 0, onAddTransaction }) {
       <SectionHeader
         title={
           <span>
-            Hello{user?.name ? <span className="text-gradient">{`, ${user.name.split(' ')[0]}`}</span> : ''}
+            {t('dash.hello')}
+            {user?.name ? <span className="text-gradient">{`, ${user.name.split(' ')[0]}`}</span> : ''}
           </span>
         }
-        subtitle="Here is your financial picture for the selected period."
+        subtitle={t('dash.subtitle')}
         action={
           <button onClick={onAddTransaction} className="btn-primary !py-2.5">
-            <Plus className="h-4 w-4" /> Add transaction
+            <Plus className="h-4 w-4" /> {t('common.addTransaction')}
           </button>
         }
       />
@@ -117,7 +126,7 @@ export default function Dashboard({ refreshKey = 0, onAddTransaction }) {
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
           {summaryQ.error || analyticsQ.error}
           <button className="ml-3 underline" onClick={() => { summaryQ.reload(); analyticsQ.reload(); }}>
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       )}
@@ -128,26 +137,26 @@ export default function Dashboard({ refreshKey = 0, onAddTransaction }) {
           <Parallax distance={10} className="h-full">
             <StatCard
               variant="hero"
-              label="Total Balance"
+              label={t('dash.totalBalance')}
               value={money(totals.savings)}
               icon={Wallet}
-              sub={`${totals.count} transactions · ${range.label}`}
+              sub={`${totals.count} ${t('common.entries')} · ${range.label}`}
             />
           </Parallax>
         </Reveal>
         <Reveal delay={0.08} y={26}>
-          <StatCard label="Total Income" value={money(totals.income)} icon={TrendingUp} tone="emerald" sub={range.label} />
+          <StatCard label={t('dash.income')} value={money(totals.income)} icon={TrendingUp} tone="emerald" sub={range.label} />
         </Reveal>
         <Reveal delay={0.16} y={26}>
-          <StatCard label="Total Expenses" value={money(totals.expense)} icon={TrendingDown} tone="rose" sub={range.label} />
+          <StatCard label={t('dash.expenses')} value={money(totals.expense)} icon={TrendingDown} tone="rose" sub={range.label} />
         </Reveal>
         <Reveal delay={0.24} y={26}>
           <StatCard
-            label="Monthly Savings"
+            label={t('dash.savings')}
             value={money(month.savings)}
             icon={PiggyBank}
             tone="sky"
-            sub={`${money(month.income)} in · ${money(month.expense)} out`}
+            sub={`${money(month.income)} · ${money(month.expense)}`}
           />
         </Reveal>
       </div>

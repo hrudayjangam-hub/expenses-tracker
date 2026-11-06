@@ -9,6 +9,7 @@ import AuthShell from '../components/AuthShell';
 import { Field, Input, FormError } from '../components/ui/Fields';
 import { Spinner } from '../components/ui/Primitives';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n/LanguageContext';
 import { getErrorMessage } from '../services/api';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
@@ -27,6 +28,7 @@ const schema = z
 export default function Register() {
   useDocumentTitle('Create account');
   const { register: registerUser } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState('');
@@ -45,7 +47,7 @@ export default function Register() {
     void confirm;
     try {
       await registerUser(values);
-      toast.success('Account created — welcome!');
+      toast.success(t('auth.createYourAccount'));
       navigate('/', { replace: true });
     } catch (err) {
       setServerError(getErrorMessage(err, 'Unable to create the account.'));
@@ -54,13 +56,13 @@ export default function Register() {
 
   return (
     <AuthShell
-      title="Create your account"
-      subtitle="Start tracking income, expenses and budgets in under a minute."
+      title={t('auth.createYourAccount')}
+      subtitle={t('auth.registerSubtitle')}
       footer={
         <>
-          Already have an account?{' '}
+          {t('auth.alreadyHave')}{' '}
           <Link to="/login" className="font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-400">
-            Log in
+            {t('auth.logIn')}
           </Link>
         </>
       }
@@ -68,7 +70,7 @@ export default function Register() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <FormError message={serverError} />
 
-        <Field label="Full name" error={errors.name?.message}>
+        <Field label={t('auth.name')} error={errors.name?.message}>
           <Input
             type="text"
             autoComplete="name"
@@ -78,7 +80,7 @@ export default function Register() {
           />
         </Field>
 
-        <Field label="Email address" error={errors.email?.message}>
+        <Field label={t('auth.email')} error={errors.email?.message}>
           <Input
             type="email"
             autoComplete="email"
@@ -89,7 +91,7 @@ export default function Register() {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Password" error={errors.password?.message}>
+          <Field label={t('auth.password')} error={errors.password?.message}>
             <div className="relative">
               <Input
                 type={showPassword ? 'text' : 'password'}
@@ -110,7 +112,7 @@ export default function Register() {
             </div>
           </Field>
 
-          <Field label="Confirm password" error={errors.confirm?.message}>
+          <Field label={t('auth.confirmPassword')} error={errors.confirm?.message}>
             <Input
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
@@ -123,12 +125,10 @@ export default function Register() {
 
         <button type="submit" className="btn-primary w-full !py-3" disabled={isSubmitting}>
           {isSubmitting ? <Spinner className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-          {isSubmitting ? 'Creating account…' : 'Create account'}
+          {isSubmitting ? t('auth.creatingAccount') : t('auth.createAccount')}
         </button>
 
-        <p className="text-center text-xs leading-relaxed text-ink-400">
-          Your data stays private to your account. Default categories are seeded automatically.
-        </p>
+        <p className="text-center text-xs leading-relaxed text-ink-400">{t('auth.privacyNote')}</p>
       </form>
     </AuthShell>
   );

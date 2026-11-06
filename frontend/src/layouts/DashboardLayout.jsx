@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Globe,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -20,51 +21,56 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useI18n } from '../i18n/LanguageContext';
 import { Logo } from '../components/ui/Primitives';
 import useScrolled from '../hooks/useScrolled';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/transactions', label: 'Transactions', icon: Receipt },
-  { to: '/budgets', label: 'Budgets', icon: Wallet },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/reports', label: 'Reports', icon: FileText },
-  { to: '/categories', label: 'Categories', icon: Tags },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true },
+  { to: '/transactions', labelKey: 'nav.transactions', icon: Receipt },
+  { to: '/budgets', labelKey: 'nav.budgets', icon: Wallet },
+  { to: '/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
+  { to: '/reports', labelKey: 'nav.reports', icon: FileText },
+  { to: '/categories', labelKey: 'nav.categories', icon: Tags },
+  { to: '/settings', labelKey: 'nav.settings', icon: Settings },
 ];
 
 const TITLES = [
-  { path: '/', title: 'Dashboard' },
-  { path: '/transactions', title: 'Transactions' },
-  { path: '/budgets', title: 'Budgets' },
-  { path: '/analytics', title: 'Analytics' },
-  { path: '/reports', title: 'Reports' },
-  { path: '/categories', title: 'Categories' },
-  { path: '/settings', title: 'Settings' },
+  { path: '/', titleKey: 'nav.dashboard' },
+  { path: '/transactions', titleKey: 'nav.transactions' },
+  { path: '/budgets', titleKey: 'nav.budgets' },
+  { path: '/analytics', titleKey: 'nav.analytics' },
+  { path: '/reports', titleKey: 'nav.reports' },
+  { path: '/categories', titleKey: 'nav.categories' },
+  { path: '/settings', titleKey: 'nav.settings' },
 ];
 
 export default function DashboardLayout({ onAddTransaction }) {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
+  const { t, lang, setLang, languages } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('et_sidebar') === '1');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const scrolled = useScrolled(6);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     setMobileOpen(false);
     setMenuOpen(false);
+    setLangOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     localStorage.setItem('et_sidebar', collapsed ? '1' : '0');
   }, [collapsed]);
 
-  const pageTitle = TITLES.find((t) => t.path === location.pathname)?.title || 'Expenses Tracker';
+  const pageTitle =
+    t(TITLES.find((x) => x.path === location.pathname)?.titleKey) || t('nav.brand');
 
   const initials = (user?.name || '?')
     .split(' ')
@@ -87,18 +93,24 @@ export default function DashboardLayout({ onAddTransaction }) {
         {(!collapsed || mobileOpen) && (
           <div className="min-w-0">
             <p className="truncate text-sm font-extrabold tracking-tight text-ink-900 dark:text-white">
-              Expenses Tracker
+              {t('nav.brand')}
             </p>
-            <p className="truncate text-[11px] font-medium text-ink-400">Batch 21CS29</p>
+            <p className="truncate text-[11px] font-medium text-ink-400">{t('nav.tagline')}</p>
           </div>
         )}
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2 scrollbar-thin">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end} className={navItem} title={collapsed && !mobileOpen ? label : undefined}>
+        {NAV.map(({ to, labelKey, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={navItem}
+            title={collapsed && !mobileOpen ? t(labelKey) : undefined}
+          >
             <Icon className="h-5 w-5 shrink-0 transition-transform duration-200 ease-out group-hover:scale-110 group-active:scale-95" />
-            {(!collapsed || mobileOpen) && <span className="truncate">{label}</span>}
+            {(!collapsed || mobileOpen) && <span className="truncate">{t(labelKey)}</span>}
           </NavLink>
         ))}
       </nav>
@@ -123,12 +135,49 @@ export default function DashboardLayout({ onAddTransaction }) {
           className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-ink-600 transition hover:bg-rose-50 hover:text-rose-600 dark:text-ink-300 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 ${
             collapsed && !mobileOpen ? 'justify-center' : ''
           }`}
-          title="Log out"
+          title={t('nav.logout')}
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          {(!collapsed || mobileOpen) && <span>Log out</span>}
+          {(!collapsed || mobileOpen) && <span>{t('nav.logout')}</span>}
         </button>
       </div>
+    </div>
+  );
+
+  const LangMenu = (
+    <div className="relative">
+      <button
+        onClick={() => setLangOpen((o) => !o)}
+        aria-label={t('common.language')}
+        title={t('common.language')}
+        className="rounded-xl p-2.5 text-ink-600 ring-1 ring-ink-200 transition hover:bg-ink-50 dark:text-ink-300 dark:ring-ink-700 dark:hover:bg-ink-800"
+      >
+        <Globe className="h-5 w-5" />
+      </button>
+      {langOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setLangOpen(false)} />
+          <div className="glass-panel absolute right-0 z-20 mt-2 w-44 animate-fade-in overflow-hidden rounded-2xl p-1.5">
+            {languages.map((l) => (
+              <button
+                key={l.code}
+                onClick={() => {
+                  setLang(l.code);
+                  setLangOpen(false);
+                }}
+                className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                  lang === l.code
+                    ? 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400'
+                    : 'text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800'
+                }`}
+              >
+                <span>{l.native}</span>
+                {lang === l.code && <span className="text-[10px] uppercase tracking-wide">✓</span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 
@@ -136,7 +185,7 @@ export default function DashboardLayout({ onAddTransaction }) {
     <div className="min-h-screen bg-ink-50 dark:bg-ink-950">
       {/* Desktop sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 hidden border-r border-ink-100 bg-white transition-all duration-200 dark:border-ink-800 dark:bg-ink-900 lg:block ${
+        className={`glass-sidebar fixed inset-y-0 left-0 z-40 hidden border-r border-white/60 transition-all duration-200 lg:block dark:border-white/5 ${
           collapsed ? 'w-20' : 'w-64'
         }`}
       >
@@ -154,7 +203,7 @@ export default function DashboardLayout({ onAddTransaction }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] animate-fade-in bg-white shadow-pop dark:bg-ink-900">
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] animate-fade-in glass-sidebar shadow-pop">
             <button
               onClick={() => setMobileOpen(false)}
               aria-label="Close menu"
@@ -169,14 +218,14 @@ export default function DashboardLayout({ onAddTransaction }) {
 
       <div className={`transition-all duration-200 ${collapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
         <header
-          className={`sticky top-0 z-30 border-b transition-all duration-300 ${
+          className={`glass-header sticky top-0 z-30 border-b transition-all duration-300 ${
             scrolled
-              ? 'border-ink-100 bg-white/92 shadow-[0_10px_36px_-24px_rgba(10,16,32,0.55)] backdrop-blur-xl dark:border-ink-800 dark:bg-ink-950/92'
-              : 'border-ink-100 bg-white/60 backdrop-blur-md dark:border-ink-800 dark:bg-ink-950/60'
+              ? 'border-white/60 shadow-[0_10px_36px_-24px_rgba(10,16,32,0.55)] dark:border-white/5'
+              : 'border-white/40 dark:border-white/5'
           }`}
         >
           <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-emerald-500/45 to-transparent" />
-          <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+          <div className="flex h-16 items-center gap-2 px-3 sm:gap-3 sm:px-6">
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
@@ -190,9 +239,16 @@ export default function DashboardLayout({ onAddTransaction }) {
                 {pageTitle}
               </h1>
               <p className="hidden truncate text-xs text-ink-400 sm:block">
-                {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {new Date().toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
               </p>
             </div>
+
+            {LangMenu}
 
             <button
               onClick={toggle}
@@ -203,7 +259,7 @@ export default function DashboardLayout({ onAddTransaction }) {
             </button>
 
             <button onClick={onAddTransaction} className="btn-primary !py-2 hidden sm:inline-flex">
-              <Plus className="h-4 w-4" /> Add
+              <Plus className="h-4 w-4" /> {t('nav.add')}
             </button>
 
             <div className="relative">
@@ -220,7 +276,7 @@ export default function DashboardLayout({ onAddTransaction }) {
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 z-20 mt-2 w-56 animate-fade-in overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-pop dark:border-ink-800 dark:bg-ink-900">
+                  <div className="glass-panel absolute right-0 z-20 mt-2 w-56 animate-fade-in overflow-hidden rounded-2xl p-1.5">
                     <div className="border-b border-ink-100 px-4 py-3 dark:border-ink-800">
                       <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{user?.name}</p>
                       <p className="truncate text-xs text-ink-400">{user?.email}</p>
@@ -228,18 +284,18 @@ export default function DashboardLayout({ onAddTransaction }) {
                     <Link
                       to="/settings"
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-ink-700 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800"
+                      className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800"
                     >
-                      <Settings className="h-4 w-4" /> Profile & settings
+                      <Settings className="h-4 w-4" /> {t('nav.profile')}
                     </Link>
                     <button
                       onClick={() => {
                         logout();
                         navigate('/login');
                       }}
-                      className="flex w-full items-center gap-2 px-4 py-3 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
                     >
-                      <LogOut className="h-4 w-4" /> Log out
+                      <LogOut className="h-4 w-4" /> {t('nav.logout')}
                     </button>
                   </div>
                 </>
@@ -255,7 +311,7 @@ export default function DashboardLayout({ onAddTransaction }) {
             animate={{ opacity: 1, y: 0 }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
             transition={{ duration: reduceMotion ? 0 : 0.22, ease: 'easeOut' }}
-            className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6"
+            className="mx-auto w-full max-w-[1400px] px-4 py-6 pb-24 sm:px-6 sm:pb-6"
           >
             <Outlet />
           </motion.main>
@@ -265,6 +321,7 @@ export default function DashboardLayout({ onAddTransaction }) {
           onClick={onAddTransaction}
           aria-label="Add transaction"
           className="fixed bottom-5 right-5 z-30 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-pop transition active:scale-95 sm:hidden"
+          style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
         >
           <Plus className="h-6 w-6" />
         </button>

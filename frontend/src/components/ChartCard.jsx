@@ -14,7 +14,7 @@ export default function ChartCard({
   bodyClassName = 'h-72',
 }) {
   return (
-    <section className={`card flex flex-col p-5 ${className}`}>
+    <section className={`card glass-card flex flex-col p-5 ${className}`}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="section-title flex items-center gap-2">
