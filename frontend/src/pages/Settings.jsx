@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Copy, KeyRound, LogOut, Moon, Save, Sun, UserCircle2, UserPlus, Users, X } from 'lucide-react';
+import { Copy, KeyRound, Languages, Moon, Save, Sun, UserCircle2, UserPlus, Users, X } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import useAsync from '../hooks/useAsync';
 import { useAuth } from '../context/AuthContext';
