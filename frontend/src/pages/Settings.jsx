@@ -3,15 +3,24 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { KeyRound, Languages, Moon, Save, Sun, UserCircle2 } from 'lucide-react';
+import { Copy, KeyRound, LogOut, Moon, Save, Sun, UserCircle2, UserPlus, Users, X } from 'lucide-react';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+import useAsync from '../hooks/useAsync';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n/LanguageContext';
 import { changePassword, updateProfile } from '../services/authService';
+import {
+  getHousehold,
+  createHousehold,
+  joinHousehold,
+  inviteMember,
+  removeMember,
+  deleteHousehold,
+} from '../services/householdService';
 import { CURRENCIES, formatDate } from '../utils/format';
 import { Field, Input, Select, FormError } from '../components/ui/Fields';
-import { SectionHeader, Spinner } from '../components/ui/Primitives';
+import { SectionHeader, Spinner, Badge } from '../components/ui/Primitives';
 import { getErrorMessage } from '../services/api';
 
 const profileSchema = z.object({
@@ -36,6 +45,15 @@ export default function Settings() {
 
   const [profileError, setProfileError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  const householdQ = useAsync(() => getHousehold(), []);
+  const household = householdQ.data?.household || null;
+  const isOwner = household && user && household.ownerId === user._id;
+
+  const [newHouseholdName, setNewHouseholdName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
@@ -259,6 +277,195 @@ export default function Settings() {
               </button>
             ))}
           </div>
+        </section>
+
+        {/* Household */}
+        <section className="card glass-card p-5 xl:col-span-2">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400">
+              <Users className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="section-title">Household</h2>
+              <p className="text-xs text-ink-400">
+                Share budgets with family — spending stays private to each member.
+              </p>
+            </div>
+          </div>
+
+          {householdQ.loading ? (
+            <Spinner className="h-5 w-5 text-emerald-500" />
+          ) : household ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ink-50 px-4 py-3 dark:bg-ink-800/60">
+                <div>
+                  <p className="text-sm font-bold text-ink-900 dark:text-white">{household.name}</p>
+                  <p className="text-xs text-ink-400">
+                    {household.members.length} member{household.members.length === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary !py-2 !text-xs"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(household.joinCode);
+                    toast.success('Join code copied');
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" /> Code {household.joinCode}
+                </button>
+              </div>
+
+              <ul className="divide-y divide-ink-100 dark:divide-ink-800">
+                {household.members.map((m) => (
+                  <li key={m.userId} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                        {m.name}
+                        {m.userId === user?._id ? ' (you)' : ''}
+                      </p>
+                      <p className="truncate text-xs text-ink-400">{m.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge tone={m.role === 'owner' ? 'emerald' : 'ink'}>{m.role}</Badge>
+                      {(isOwner && m.role !== 'owner') || m.userId === user?._id ? (
+                        <button
+                          type="button"
+                          aria-label="Remove member"
+                          className="rounded-lg p-1.5 text-ink-400 transition hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10"
+                          onClick={async () => {
+                            try {
+                              const d = await removeMember(m.userId);
+                              householdQ.reload();
+                              toast.success(d.message);
+                            } catch (err) {
+                              toast.error(getErrorMessage(err));
+                            }
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {isOwner && (
+                <form
+                  className="flex flex-wrap gap-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setBusy(true);
+                    try {
+                      const d = await inviteMember(inviteEmail.trim());
+                      setInviteEmail('');
+                      householdQ.reload();
+                      toast.success(d.message);
+                    } catch (err) {
+                      toast.error(getErrorMessage(err, 'Could not invite member.'));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  <Input
+                    type="email"
+                    required
+                    placeholder="Invite by email (existing account)"
+                    className="flex-1 min-w-[220px]"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                  />
+                  <button className="btn-primary !py-2.5" disabled={busy}>
+                    {busy ? <Spinner className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} Invite
+                  </button>
+                </form>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="btn-ghost text-rose-600 dark:text-rose-400"
+                  onClick={async () => {
+                    try {
+                      const d = await deleteHousehold();
+                      householdQ.reload();
+                      toast.success(d.message);
+                    } catch (err) {
+                      toast.error(getErrorMessage(err));
+                    }
+                  }}
+                >
+                  {isOwner ? 'Delete household' : 'Leave household'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setBusy(true);
+                  try {
+                    const d = await createHousehold(newHouseholdName.trim());
+                    setNewHouseholdName('');
+                    householdQ.reload();
+                    toast.success(d.message);
+                  } catch (err) {
+                    toast.error(getErrorMessage(err, 'Could not create household.'));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="space-y-3 rounded-xl border border-ink-100 p-4 dark:border-ink-800"
+              >
+                <p className="text-sm font-bold text-ink-900 dark:text-white">Create a household</p>
+                <Input
+                  required
+                  minLength={2}
+                  placeholder="Family name"
+                  value={newHouseholdName}
+                  onChange={(e) => setNewHouseholdName(e.target.value)}
+                />
+                <button className="btn-primary w-full !py-2.5" disabled={busy || newHouseholdName.trim().length < 2}>
+                  {busy ? <Spinner className="h-4 w-4" /> : <Users className="h-4 w-4" />} Create
+                </button>
+              </form>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setBusy(true);
+                  try {
+                    const d = await joinHousehold(joinCode.trim().toUpperCase());
+                    setJoinCode('');
+                    householdQ.reload();
+                    toast.success(d.message);
+                  } catch (err) {
+                    toast.error(getErrorMessage(err, 'Could not join household.'));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="space-y-3 rounded-xl border border-ink-100 p-4 dark:border-ink-800"
+              >
+                <p className="text-sm font-bold text-ink-900 dark:text-white">Join with a code</p>
+                <Input
+                  required
+                  minLength={6}
+                  maxLength={8}
+                  placeholder="e.g. A1B2C3"
+                  className="uppercase"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                />
+                <button className="btn-secondary w-full !py-2.5" disabled={busy || joinCode.trim().length < 6}>
+                  {busy ? <Spinner className="h-4 w-4" /> : <KeyRound className="h-4 w-4" />} Join
+                </button>
+              </form>
+            </div>
+          )}
         </section>
 
         {/* Account */}

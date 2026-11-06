@@ -2,7 +2,7 @@ const { z } = require('zod');
 const Transaction = require('../models/Transaction');
 const Category = require('../models/Category');
 const asyncHandler = require('../utils/asyncHandler');
-const { computeSpent, OVERALL } = require('./budgetController');
+const { computeSpent, OVERALL, visibleFilter } = require('./budgetController');
 const Budget = require('../models/Budget');
 const {
   buildDateFilter,
@@ -50,11 +50,13 @@ const summary = asyncHandler(async (req, res) => {
   const q = req.valid.query;
   const now = new Date();
 
+  const budgetFilter = await visibleFilter(userId);
+
   const [rangeTotals, monthTotals, recent, budgets] = await Promise.all([
     totalsFor(rangeMatch(userId, q)),
     totalsFor({ userId, date: monthBounds(now.getFullYear(), now.getMonth() + 1) }),
     Transaction.find({ userId }).sort({ date: -1, createdAt: -1 }).limit(8).lean(),
-    Budget.find({ userId, month: now.getMonth() + 1, year: now.getFullYear() }).lean(),
+    Budget.find({ ...budgetFilter, month: now.getMonth() + 1, year: now.getFullYear() }).lean(),
   ]);
 
   const budgetProgress = await computeSpent(userId, budgets);
@@ -109,7 +111,7 @@ const analytics = asyncHandler(async (req, res) => {
 
   const match = { userId, date: { $gte: startOfDay(from), $lte: to } };
 
-  const [monthRows, dayRows, categoryRows, yearlyRows, categories] = await Promise.all([
+  const [monthRows, dayRows, wholeCategoryRows, splitCategoryRows, yearlyRows, categories] = await Promise.all([
     Transaction.aggregate([
       { $match: match },
       {
@@ -130,7 +132,7 @@ const analytics = asyncHandler(async (req, res) => {
       },
     ]),
     Transaction.aggregate([
-      { $match: { userId, date: match.date } },
+      { $match: { userId, date: match.date, splits: { $exists: false } } },
       {
         $group: {
           _id: { category: '$category', type: '$type' },
@@ -138,7 +140,18 @@ const analytics = asyncHandler(async (req, res) => {
           count: { $sum: 1 },
         },
       },
-      { $sort: { total: -1 } },
+    ]),
+    // split portions counted under their own categories
+    Transaction.aggregate([
+      { $match: { userId, date: match.date, splits: { $exists: true, $ne: [] } } },
+      { $unwind: '$splits' },
+      {
+        $group: {
+          _id: { category: '$splits.category', type: '$type' },
+          total: { $sum: '$splits.amount' },
+          count: { $sum: 1 },
+        },
+      },
     ]),
     Transaction.aggregate([
       { $match: { userId } },
@@ -153,6 +166,17 @@ const analytics = asyncHandler(async (req, res) => {
     ]),
     Category.find({ userId }).lean(),
   ]);
+
+  // merge whole + split category rows
+  const categoryRowMap = new Map();
+  [...wholeCategoryRows, ...splitCategoryRows].forEach((r) => {
+    const key = `${r._id.type}:${r._id.category}`;
+    const cur = categoryRowMap.get(key) || { _id: r._id, total: 0, count: 0 };
+    cur.total += r.total;
+    cur.count += r.count;
+    categoryRowMap.set(key, cur);
+  });
+  const categoryRows = [...categoryRowMap.values()].sort((a, b) => b.total - a.total);
 
   const colorMap = {};
   categories.forEach((c, i) => {

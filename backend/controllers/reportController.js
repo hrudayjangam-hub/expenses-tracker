@@ -28,14 +28,14 @@ const summary = asyncHandler(async (req, res) => {
   const range = buildDateFilter(q.from, q.to);
   if (range) match.date = range;
 
-  const [totalsRows, categoryRows, paymentRows, dayRows, monthRows, categories, largest, exportRows] =
+  const [totalsRows, wholeCategoryRows, splitCategoryRows, paymentRows, dayRows, monthRows, categories, largest, exportRows] =
     await Promise.all([
       Transaction.aggregate([
         { $match: match },
         { $group: { _id: '$type', total: { $sum: '$amount' }, count: { $sum: 1 } } },
       ]),
       Transaction.aggregate([
-        { $match: match },
+        { $match: { ...match, splits: { $exists: false } } },
         {
           $group: {
             _id: { category: '$category', type: '$type' },
@@ -43,7 +43,17 @@ const summary = asyncHandler(async (req, res) => {
             count: { $sum: 1 },
           },
         },
-        { $sort: { total: -1 } },
+      ]),
+      Transaction.aggregate([
+        { $match: { ...match, splits: { $exists: true, $ne: [] } } },
+        { $unwind: '$splits' },
+        {
+          $group: {
+            _id: { category: '$splits.category', type: '$type' },
+            total: { $sum: '$splits.amount' },
+            count: { $sum: 1 },
+          },
+        },
       ]),
       Transaction.aggregate([
         { $match: { ...match, type: 'expense' } },
@@ -95,6 +105,15 @@ const summary = asyncHandler(async (req, res) => {
   });
 
   const expenseTotalForPercent = totals.expense || 1;
+  const categoryRowMap = new Map();
+  [...wholeCategoryRows, ...splitCategoryRows].forEach((r) => {
+    const key = `${r._id.type}:${r._id.category}`;
+    const cur = categoryRowMap.get(key) || { _id: r._id, total: 0, count: 0 };
+    cur.total += r.total;
+    cur.count += r.count;
+    categoryRowMap.set(key, cur);
+  });
+  const categoryRows = [...categoryRowMap.values()].sort((a, b) => b.total - a.total);
   const categoryBreakdown = categoryRows.map((r) => ({
     category: r._id.category,
     type: r._id.type,

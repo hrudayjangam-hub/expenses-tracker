@@ -3,10 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { AlertTriangle, ChevronLeft, ChevronRight, Pencil, PiggyBank, Plus, Trash2, Wallet } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Pencil, PiggyBank, Plus, Trash2, Users, Wallet } from 'lucide-react';
 import useAsync from '../hooks/useAsync';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 import { listBudgets, createBudget, updateBudget, deleteBudget } from '../services/budgetService';
+import { getHousehold } from '../services/householdService';
 import { useCategories } from '../hooks/useCategories';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, monthName } from '../utils/format';
@@ -24,6 +25,7 @@ const STATUS_LABEL = { ok: 'On track', warning: '75% used', danger: '90% used', 
 const schema = z.object({
   category: z.string().min(1, 'Pick a category'),
   amount: z.coerce.number({ invalid_type_error: 'Enter a valid amount' }).positive('Budget must be greater than 0'),
+  shared: z.boolean().default(false),
 });
 
 function shiftMonth(month, year, delta) {
@@ -47,35 +49,43 @@ export default function Budgets() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const budgetsQ = useAsync(() => listBudgets({ month, year }), [month, year]);
+  const householdQ = useAsync(() => getHousehold(), []);
+  const household = householdQ.data?.household || null;
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm({ resolver: zodResolver(schema), defaultValues: { category: '', amount: '' } });
+  } = useForm({ resolver: zodResolver(schema), defaultValues: { category: '', amount: '', shared: false } });
 
   const openCreate = () => {
     setEditing(null);
-    reset({ category: '', amount: '' });
+    reset({ category: '', amount: '', shared: false });
     setModalOpen(true);
   };
 
   const openEdit = (b) => {
     setEditing(b);
-    reset({ category: b.category, amount: b.amount });
+    reset({ category: b.category, amount: b.amount, shared: Boolean(b.householdId) });
     setModalOpen(true);
   };
 
   const onSubmit = async (values) => {
-    const payload = { ...values, amount: Number(values.amount), month, year };
+    const payload = {
+      amount: Number(values.amount),
+      month,
+      year,
+      category: values.category,
+      householdId: values.shared && household ? household._id : null,
+    };
     try {
       if (editing) {
-        await updateBudget(editing._id, { ...payload, category: values.category });
+        await updateBudget(editing._id, payload);
         toast.success('Budget updated');
       } else {
         await createBudget(payload);
-        toast.success('Budget created');
+        toast.success(values.shared ? 'Shared budget created' : 'Budget created');
       }
       setModalOpen(false);
       setEditing(null);
@@ -225,7 +235,14 @@ export default function Budgets() {
                     <Wallet className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="truncate text-sm font-bold text-ink-900 dark:text-white">{b.category}</h3>
+                    <h3 className="flex items-center gap-1.5 truncate text-sm font-bold text-ink-900 dark:text-white">
+                      {b.category}
+                      {b.householdId ? (
+                        <span title="Shared with household">
+                          <Users className="h-3.5 w-3.5 shrink-0 text-teal-500" />
+                        </span>
+                      ) : null}
+                    </h3>
                     <p className="text-xs text-ink-400">
                       {formatCurrency(b.amount, currency)} limit
                     </p>
@@ -309,6 +326,14 @@ export default function Budgets() {
               {...register('amount')}
             />
           </Field>
+          {household && !editing ? (
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-ink-100 px-3.5 py-3 dark:border-ink-800">
+              <input type="checkbox" className="h-4 w-4 rounded accent-teal-600" {...register('shared')} />
+              <span className="flex items-center gap-2 text-sm font-semibold text-ink-700 dark:text-ink-200">
+                <Users className="h-4 w-4 text-teal-600" /> Share with {household.name}
+              </span>
+            </label>
+          ) : null}
           <div className="flex justify-end gap-2">
             <button
               type="button"

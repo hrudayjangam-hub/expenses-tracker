@@ -12,6 +12,7 @@ import Budgets from './pages/Budgets';
 import Analytics from './pages/Analytics';
 import Reports from './pages/Reports';
 import Categories from './pages/Categories';
+import Accounts from './pages/Accounts';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
 import { useCategories } from './hooks/useCategories';
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/categories" element={<Categories />} />
+          <Route path="/accounts" element={<Accounts />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<NotFound />} />

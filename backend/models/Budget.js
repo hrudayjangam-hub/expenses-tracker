@@ -31,10 +31,27 @@ const budgetSchema = new mongoose.Schema(
       min: 2000,
       max: 2100,
     },
+    householdId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Household',
+      default: null,
+      index: true,
+    },
+    alertedThresholds: {
+      type: [Number],
+      default: [],
+    },
   },
   { timestamps: true }
 );
 
-budgetSchema.index({ userId: 1, category: 1, month: 1, year: 1 }, { unique: true });
+budgetSchema.index(
+  { userId: 1, category: 1, month: 1, year: 1 },
+  { unique: true, partialFilterExpression: { householdId: null } }
+);
+budgetSchema.index(
+  { householdId: 1, category: 1, month: 1, year: 1 },
+  { unique: true, partialFilterExpression: { householdId: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('Budget', budgetSchema);

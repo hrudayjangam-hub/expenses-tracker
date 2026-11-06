@@ -5,6 +5,7 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   FileText,
   Globe,
   LayoutDashboard,
@@ -32,6 +33,7 @@ const NAV = [
   { to: '/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
   { to: '/reports', labelKey: 'nav.reports', icon: FileText },
   { to: '/categories', labelKey: 'nav.categories', icon: Tags },
+  { to: '/accounts', labelKey: 'nav.accounts', icon: CreditCard },
   { to: '/settings', labelKey: 'nav.settings', icon: Settings },
 ];
 
@@ -42,6 +44,7 @@ const TITLES = [
   { path: '/analytics', titleKey: 'nav.analytics' },
   { path: '/reports', titleKey: 'nav.reports' },
   { path: '/categories', titleKey: 'nav.categories' },
+  { path: '/accounts', titleKey: 'nav.accounts' },
   { path: '/settings', titleKey: 'nav.settings' },
 ];
 

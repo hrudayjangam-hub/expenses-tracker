@@ -27,6 +27,8 @@ app.use('/api/budgets', require('./routes/budgets'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/accounts', require('./routes/accounts'));
+app.use('/api/households', require('./routes/households'));
 
 app.use(notFound);
 app.use(errorHandler);

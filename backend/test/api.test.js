@@ -14,6 +14,7 @@ let base;
 let token;
 let otherToken;
 let userId;
+let otherUserId;
 let txId;
 let budgetId;
 let categoryId;
@@ -206,6 +207,7 @@ test('update and delete a transaction', async () => {
 test('users cannot access each other data', async () => {
   const other = await registerUser('Other User', 'other@example.com', 'secret123');
   otherToken = other.token;
+  otherUserId = other.user._id;
 
   const res = await req('GET', `/api/transactions?limit=100`, { token: otherToken });
   assert.equal(res.body.pagination.total, 0);
@@ -353,6 +355,178 @@ test('profile update, currency and password change', async () => {
   });
   assert.equal(login.status, 200);
   token = login.body.token;
+});
+
+test('accounts CRUD with balances and net worth', async () => {
+  const created = await req('POST', '/api/accounts', {
+    token,
+    body: { name: 'Test Bank', type: 'savings', openingBalance: 1000 },
+  });
+  assert.equal(created.status, 201);
+  const accountId = created.body.account._id;
+
+  const dupe = await req('POST', '/api/accounts', {
+    token,
+    body: { name: 'Test Bank', type: 'cash', openingBalance: 0 },
+  });
+  assert.equal(dupe.status, 409);
+
+  const list = await req('GET', '/api/accounts', { token });
+  assert.equal(list.status, 200);
+  assert.equal(list.body.accounts.length, 1);
+  assert.equal(list.body.accounts[0].balance, 1000);
+
+  const tx = await req('POST', '/api/transactions', {
+    token,
+    body: {
+      type: 'income',
+      amount: 500,
+      category: 'Salary',
+      date: '2026-11-01',
+      paymentMethod: 'Bank Transfer',
+      accountId,
+    },
+  });
+  assert.equal(tx.status, 201);
+  assert.equal(tx.body.transaction.accountId, accountId);
+
+  const afterFlow = await req('GET', '/api/accounts', { token });
+  assert.equal(afterFlow.body.accounts[0].balance, 1500);
+  assert.equal(afterFlow.body.netWorth, 1500);
+
+  const history = await req('GET', '/api/accounts/net-worth?months=6', { token });
+  assert.equal(history.status, 200);
+  assert.equal(history.body.points.length, 6);
+
+  const filtered = await req('GET', `/api/transactions?accountId=${accountId}`, { token });
+  assert.equal(filtered.body.transactions.length, 1);
+
+  const del = await req('DELETE', `/api/accounts/${accountId}`, { token });
+  assert.equal(del.status, 409);
+
+  await req('DELETE', `/api/transactions/${tx.body.transaction._id}`, { token });
+  const del2 = await req('DELETE', `/api/accounts/${accountId}`, { token });
+  assert.equal(del2.status, 200);
+});
+
+test('split transactions validate and roll into category analytics', async () => {
+  const split = await req('POST', '/api/transactions', {
+    token,
+    body: {
+      type: 'expense',
+      amount: 300,
+      date: '2026-11-02',
+      paymentMethod: 'UPI',
+      splits: [
+        { category: 'Food', amount: 200 },
+        { category: 'Shopping', amount: 100 },
+      ],
+    },
+  });
+  assert.equal(split.status, 201);
+  assert.equal(split.body.transaction.category, 'Split');
+  const splitId = split.body.transaction._id;
+
+  const badSplit = await req('POST', '/api/transactions', {
+    token,
+    body: {
+      type: 'expense',
+      amount: 300,
+      date: '2026-11-02',
+      paymentMethod: 'UPI',
+      splits: [
+        { category: 'Food', amount: 100 },
+        { category: 'Shopping', amount: 100 },
+      ],
+    },
+  });
+  assert.equal(badSplit.status, 400);
+
+  const list = await req('GET', '/api/transactions?category=Split', { token });
+  assert.equal(list.status, 200);
+  assert.equal(list.body.transactions.length, 1);
+
+  const reports = await req('GET', '/api/reports/summary?from=2026-11-01&to=2026-11-30', { token });
+  assert.equal(reports.status, 200);
+  const food = reports.body.categoryBreakdown.find((c) => c.category === 'Food');
+  const shopping = reports.body.categoryBreakdown.find((c) => c.category === 'Shopping');
+  assert.ok(food.amount >= 200);
+  assert.ok(shopping.amount >= 100);
+  const splitRow = reports.body.categoryBreakdown.find((c) => c.category === 'Split');
+  assert.ok(!splitRow || splitRow.amount === 0);
+
+  const unsplit = await req('PUT', `/api/transactions/${splitId}`, {
+    token,
+    body: {
+      splits: null,
+      category: 'Food',
+      amount: 300,
+      type: 'expense',
+      date: '2026-11-02',
+      paymentMethod: 'UPI',
+    },
+  });
+  assert.equal(unsplit.status, 200);
+  assert.equal(unsplit.body.transaction.category, 'Food');
+  assert.equal(unsplit.body.transaction.splits, undefined);
+
+  await req('DELETE', `/api/transactions/${splitId}`, { token });
+});
+
+test('household create, join, shared budgets and membership rules', async () => {
+  const created = await req('POST', '/api/households', { token, body: { name: 'Family Home' } });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.household.members.length, 1);
+  assert.ok(created.body.household.joinCode.length >= 6);
+  const joinCode = created.body.household.joinCode;
+  const householdId = created.body.household._id;
+
+  const noInvite = await req('POST', '/api/households/invite', {
+    token,
+    body: { email: 'ghost@example.com' },
+  });
+  assert.equal(noInvite.status, 404);
+
+  // non-member cannot create budgets for this household
+  const otherCannotEdit = await req('POST', '/api/budgets', {
+    token: otherToken,
+    body: { category: 'Bills', amount: 1000, month: 11, year: 2026, householdId },
+  });
+  assert.equal(otherCannotEdit.status, 403);
+
+  const invited = await req('POST', '/api/households/invite', {
+    token,
+    body: { email: 'other@example.com' },
+  });
+  assert.equal(invited.status, 200);
+  assert.equal(invited.body.household.members.length, 2);
+
+  const shared = await req('POST', '/api/budgets', {
+    token,
+    body: { category: 'Food', amount: 5000, month: 11, year: 2026, householdId },
+  });
+  assert.equal(shared.status, 201);
+  assert.equal(shared.body.budget.householdId, householdId);
+
+  const otherList = await req('GET', '/api/budgets?month=11&year=2026', { token: otherToken });
+  assert.equal(otherList.status, 200);
+  assert.ok(otherList.body.budgets.some((b) => b.householdId));
+
+  const leave = await req('DELETE', `/api/households/members/${otherUserId}`, { token: otherToken });
+  assert.equal(leave.status, 200);
+
+  const rejoin = await req('POST', '/api/households/join', { token: otherToken, body: { joinCode } });
+  assert.equal(rejoin.status, 200);
+
+  const sharedList = await req('GET', '/api/budgets?month=11&year=2026', { token: otherToken });
+  const sharedFood = sharedList.body.budgets.find((b) => b._id === shared.body.budget._id);
+  assert.ok(sharedFood);
+  assert.equal(typeof sharedFood.spent, 'number');
+
+  const deleteH = await req('DELETE', '/api/households', { token });
+  assert.equal(deleteH.status, 200);
+  const gone = await req('GET', '/api/budgets?month=11&year=2026', { token });
+  assert.ok(!gone.body.budgets.some((b) => b._id === shared.body.budget._id));
 });
 
 test('unknown routes return 404 and invalid ids return 400', async () => {
