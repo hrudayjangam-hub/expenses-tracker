@@ -27,3 +27,5 @@ mongodb-data/
 # E2E run artifacts
 e2e/downloads/
 e2e/.chrome-profile/
+
+.vercel
